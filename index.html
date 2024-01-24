@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tortoisebot Control Room</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+    <script src="https://s3.eu-west-1.amazonaws.com/rosject.io/js/roslib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/eventemitter2@5.0.1/lib/eventemitter2.min.js"></script>
+    <script type="text/javascript" src="./mjpegcanvas.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/easeljs/lib/easeljs.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/ros2d/build/ros2d.min.js"></script>
+
+    <script src="./libs/three.min.js"></script>
+    <script src="./libs/ColladaLoader.js"></script>
+    <script src="./libs/ColladaLoader2.js"></script>
+    <script src="./libs/STLLoader.js"></script>
+    <script src="./libs/ros3d.min.js"></script>
+
+    <style type="text/css">
+        #dragstartzone {
+            position: relative;
+            display: inline-block;
+            width: 200px;
+            height: 200px;
+            border: 1px solid #333;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        #dragCircle {
+            position: absolute;
+            border: 1px solid transparent;
+            border-radius: 50%;
+            background-color: rgba(0, 0, 0, 30%);
+            cursor: pointer;
+        }
+
+        #dragCircle:hover {
+            background-color: lightcoral;
+        }
+
+        /* Custom styles for the fixed toolbar in the footer */
+        .fixed-toolbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #333;
+            color: #fff;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toolbar-icon {
+            margin-right: 10px;
+        }
+
+        .log-window {
+            position: fixed;
+            bottom: 100px;
+            /* Adjust the distance from the bottom as needed */
+            right: 10px;
+            width: 200px;
+            height: 150px;
+            background-color: #000;
+            color: #fff;
+            overflow: auto;
+        }
+
+        .log-button {
+            position: fixed;
+            bottom: 80px;
+            right: 10px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        .log-button:hover {
+            background-color: #555;
+        }
+
+        .log-data {
+            padding-left: 10px;
+            padding-right: 10px;
+            padding-top: 5px;
+        }
+
+        .mapping-buttons {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .mapping-button {
+            width: 100px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body class="has-background-light">
+
+    <header class="hero is-primary">
+        <div class="hero-body">
+            <div class="container">
+                <div class="columns is-vcentered">
+                    <div class="column">
+                        <h1 class="title is-1">
+                            <i class="fas fa-robot"></i> Tortoisebot Control Room
+                        </h1>
+                        <p class="subtitle is-4">Let's connect our website to the ROS robot!</p>
+                    </div>
+                    <div class="column">
+                        <div class="joystick-container">
+                            <div style="border: 0px solid red; width: 128px; position: absolute; right: 10px; top: 0;">
+                                <img src="images/joystick-base.png" />
+                                <div id="stick1" style="position: absolute; left: 32px; top: 32px;">
+                                    <img src="images/joystick-red.png" />
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <main id="vueApp">
+
+        <div class="columns is-vcentered"v-show="this.connected">
+            <div class="column">
+                <div class="card" style="max-width: 420px; margin: 20px auto;">
+                    <div id="divCamera" class="card-image">
+                    </div>
+                    <div class="card-content">
+                        <div class="media">
+                            <div class="media-content">
+                                <p class="title is-4">Camera Stream</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="column">
+                <div class="card" style="max-width: 420px; margin: 20px auto;">
+                    <div id="map" class="card-image">
+                    </div>
+                    <div class="card-content">
+                        <div class="field is-grouped">
+                            <div class="control">
+                                <div class="select">
+                                    <select v-model="selectedWaypoint">
+                                        <option value="waypoint1">X: 0.65, Y: -0.5</option>
+                                        <option value="waypoint2">X: 0.65, Y: 0.45</option>
+                                        <option value="waypoint3">X: 0.25, Y: 0.48</option>
+                                        <option value="waypoint4">X: 0.2, Y: 0.0</option>
+                                        <option value="waypoint5">X: -0.12, Y: 0.0</option>
+                                        <option value="waypoint6">X: -0.12, Y: -0.5</option>
+                                        <option value="waypoint7">X: -0.12, Y: 0.5</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="control">
+                                <button class="button is-primary" @click="goToWaypoint">
+                                    <span class="icon"><i class="fas fa-map-marker-alt"></i></span>
+                                    <span>Go to Waypoint</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="column">
+                <div class="card" style="max-width: 420px; margin: 20px auto;">
+                    <div id="div3DViewer" class="card-image">
+                    </div>
+                    <div class="card-content">
+                        <div class="media">
+                            <div class="media-content">
+                                <p class="title is-4">3D Viewer</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-window" id="logWindow" v-show="logWindowVisible">
+            <p class="log-data">Joystick x: {{this.joystick.vertical}}</p>
+            <p class="log-data">Joystick y: {{this.joystick.horizontal}}</p>
+        </div>
+
+        <!-- Log Button -->
+        <button class="log-button" @click="toggleLogWindow">
+            <i class="fas fa-terminal"></i>
+        </button>
+        <!-- footer -->
+
+        <footer class="has-background-dark has-text-light">
+            <div class="fixed-toolbar">
+                <div>
+                    <i class="fas fa-robot toolbar-icon"></i>
+                    <span>Status: {{ this.connected ? 'Connected' : 'You are NOT connected to the robot' }}</span>
+                </div>
+                <button class="button" :class="{ 'is-primary': !connected, 'is-danger': connected }" @click="toggleConnection">
+                    <i class="fas fa-plug toolbar-icon"></i> {{ this.connected ? 'Disconnect' : 'Connect!' }}
+                </button>
+            </div>
+        </footer>
+
+        
+
+
+    </main>
+
+    <script type="text/javascript">
+        var script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.src = 'main.js?v=3.' + Date.now();
+        document.head.appendChild(script);
+    </script>
+
+</body>
+
+</html>
